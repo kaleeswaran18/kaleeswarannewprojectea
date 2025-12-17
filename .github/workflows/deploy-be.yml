@@ -1,0 +1,83 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main  # Trigger on push to the main branch
+    paths:
+      - 'backend/**'  # Run only if there are changes in the backend folder
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: List files
+        run: ls -la backend  # List files to ensure the backend directory contains the Dockerfile
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      - name: Build Docker image
+        run: docker buildx build --platform linux/amd64 -f backend/Dockerfile -t harith47/alliswell:latest --output type=docker backend
+        # Make sure 'backend' is the correct context directory containing your Dockerfile
+
+      - name: List Docker images
+        run: docker images  # Debugging step to confirm image exists
+
+      - name: Publish image to Docker Hub
+        run: docker push harith47/alliswell:latest
+
+  deploy:
+    needs: build
+    runs-on: self-hosted  # Use a specific self-hosted runner labackendl if necessary
+    steps:
+      - name: Pull image from Docker Hub
+        run: docker pull harith47/alliswell:latest
+
+      - name: Delete old container
+        run: docker rm -f nodejs-app-container || true  # Use || true to prevent errors if the container doesn't exist
+
+      - name: Run Docker container
+        run:  docker run -d --platform linux/amd64 --name nodejs-app-container --network mynetwork -p 5000:5000 -v /home/ubuntu/app-images:/app/public/images harith47/alliswell:latest
+
+      - name: Show container logs if it fails
+        run: docker logs nodejs-app-container || true 
+
+
+      - name: Delete old Nginx container
+        run: docker rm -f nginx-proxy || true
+
+      # - name: Run Nginx Reverse Proxy
+      #   run: |
+      #     docker run -d --name nginx-proxy \
+      #       -p 80:80 -p 443:443 \
+      #       -v $HOME/nginx-config/nginx.conf:/etc/nginx/nginx.conf \
+      #       -v $HOME/nginx-config/ssl/cert.pem:/etc/nginx/ssl/cert.pem \
+      #       -v $HOME/nginx-config/ssl/key.pem:/etc/nginx/ssl/key.pem \
+      #       nginx
+
+      - name: Run Nginx Reverse Proxy
+        run: |
+           docker run -d --name nginx-proxy \
+            --network mynetwork \
+            --restart unless-stopped \
+            -p 80:80 -p 443:443 \
+            -v $HOME/nginx-config/nginx.conf:/etc/nginx/nginx.conf \
+            -v /etc/letsencrypt:/etc/letsencrypt:ro \
+            -v /var/www/certbot:/var/www/certbot \
+            nginx
+
+
+
+
+      - name: Show logs if Nginx fails
+        run: docker logs nginx-proxy || true  
+
+      - name: Clean up dangling images
+        run: docker image prune -f  # Clean up to save disk space
