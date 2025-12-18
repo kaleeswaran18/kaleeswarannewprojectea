@@ -58,24 +58,45 @@ const adminaccountSchema = () => {
   // ============================================
   // BUSINESS CREATE
   // ============================================
-  const BusinessCreate = async (req, res) => {
-    try {
-      const bus = await Busniess.create({
-        Name: req.body.Name,
-        Books: 0
-      });
+ const BusinessCreate = async (req, res) => {
+  try {
+    const { Name } = req.body;
 
-      res.status(200).json({
-        status: true,
-        message: "Business Created Successfully",
-        data: bus
+    if (!Name || Name.trim() === "") {
+      return res.status(400).json({
+        status: false,
+        message: "Business Name is required"
       });
-
-    } catch (err) {
-      console.error("Something went wrong:", err);
-      res.status(500).json({ status: false, message: "Internal Server Error" });
     }
-  };
+
+    const exists = await Busniess.findOne({
+      Name: { $regex: new RegExp("^" + Name.trim() + "$", "i") }
+    });
+
+    if (exists) {
+      return res.status(400).json({
+        status: false,
+        message: "Business Name Already Exists"
+      });
+    }
+
+    const bus = await Busniess.create({
+      Name: Name.trim(),
+      Books: 0
+    });
+
+    res.status(200).json({
+      status: true,
+      message: "Business Created Successfully",
+      data: bus
+    });
+
+  } catch (err) {
+    console.error("Something went wrong:", err);
+    res.status(500).json({ status: false, message: "Internal Server Error" });
+  }
+};
+
 
   // ============================================
   // BUSINESS GET ALL
@@ -123,35 +144,52 @@ const adminaccountSchema = () => {
   // ============================================
   // BUSINESS UPDATE
   // ============================================
-  const UpdateBusiness = async (req, res) => {
-    try {
-      const bus = await Busniess.findByIdAndUpdate(
-        req.params.id,
-        {
-          Name: req.body.Name,
-          Books: req.body.Books
-        },
-        { new: true }
-      );
+ const UpdateBusiness = async (req, res) => {
+  try {
+    const { Name, Books } = req.body;
+    const { id } = req.params;
 
-      if (!bus) {
-        return res.status(404).json({
-          status: false,
-          message: "Business Not Found"
-        });
-      }
+    // 🔍 Check duplicate name except current document
+    const exists = await Busniess.findOne({
+      Name: { $regex: new RegExp("^" + Name.trim() + "$", "i") },
+      _id: { $ne: id }
+    });
 
-      res.status(200).json({
-        status: true,
-        message: "Business Updated Successfully",
-        data: bus
+    if (exists) {
+      return res.status(400).json({
+        status: false,
+        message: "Business Name Already Exists"
       });
-
-    } catch (err) {
-      console.error("Something went wrong:", err);
-      res.status(500).json({ status: false, message: "Internal Server Error" });
     }
-  };
+
+    const bus = await Busniess.findByIdAndUpdate(
+      id,
+      {
+        Name: Name.trim(),
+        Books
+      },
+      { new: true }
+    );
+
+    if (!bus) {
+      return res.status(404).json({
+        status: false,
+        message: "Business Not Found"
+      });
+    }
+
+    res.status(200).json({
+      status: true,
+      message: "Business Updated Successfully",
+      data: bus
+    });
+
+  } catch (err) {
+    console.error("Something went wrong:", err);
+    res.status(500).json({ status: false, message: "Internal Server Error" });
+  }
+};
+
 
   // ============================================
   // BUSINESS DELETE
@@ -182,9 +220,22 @@ const adminaccountSchema = () => {
 // ============================================
 const SubBusinessCreate = async (req, res) => {
   try {
+    const { Name, Busniessid } = req.body;
+
+    const exists = await SubBusniess.findOne({
+      Name: { $regex: new RegExp("^" + Name.trim() + "$", "i") }
+    });
+
+    if (exists) {
+      return res.status(400).json({
+        status: false,
+        message: "SubBusiness Name Already Exists"
+      });
+    }
+
     const sub = await SubBusniess.create({
-      Name: req.body.Name,
-      Busniessid: req.body.Busniessid
+      Name: Name.trim(),
+      Busniessid
     });
 
     res.status(200).json({
@@ -198,6 +249,7 @@ const SubBusinessCreate = async (req, res) => {
     res.status(500).json({ status: false, message: "Internal Server Error" });
   }
 };
+
 
 // ============================================
 // SUB BUSINESS GET ALL
@@ -247,11 +299,26 @@ const GetSubBusinessById = async (req, res) => {
 // ============================================
 const UpdateSubBusiness = async (req, res) => {
   try {
+    const { Name, Busniessid } = req.body;
+    const { id } = req.params;
+
+    const exists = await SubBusniess.findOne({
+      Name: { $regex: new RegExp("^" + Name.trim() + "$", "i") },
+      _id: { $ne: id }
+    });
+
+    if (exists) {
+      return res.status(400).json({
+        status: false,
+        message: "SubBusiness Name Already Exists"
+      });
+    }
+
     const sub = await SubBusniess.findByIdAndUpdate(
-      req.params.id,
+      id,
       {
-        Name: req.body.Name,
-        Busniessid: req.body.Busniessid
+        Name: Name.trim(),
+        Busniessid
       },
       { new: true }
     );
@@ -274,6 +341,7 @@ const UpdateSubBusiness = async (req, res) => {
     res.status(500).json({ status: false, message: "Internal Server Error" });
   }
 };
+
 
 // ============================================
 // SUB BUSINESS DELETE
