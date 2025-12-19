@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 require('dotenv').config();
-
+const moment=require('moment')
 const adminaccountSchema = () => {
 
   // ============================================
@@ -58,10 +58,11 @@ const adminaccountSchema = () => {
   // ============================================
   // BUSINESS CREATE
   // ============================================
- const BusinessCreate = async (req, res) => {
+const BusinessCreate = async (req, res) => {
   try {
-    const { Name } = req.body;
-
+    const { Name, amount } = req.body;
+    console.log(req.body)
+console.log(Name,'name1')
     if (!Name || Name.trim() === "") {
       return res.status(400).json({
         status: false,
@@ -80,9 +81,13 @@ const adminaccountSchema = () => {
       });
     }
 
+    const updatedText = moment().format("DD/MM/YYYY hh:mm A");
+
     const bus = await Busniess.create({
       Name: Name.trim(),
-      Books: 0
+      Books: 0,
+      amount: amount || 0,
+      updatedText: updatedText
     });
 
     res.status(200).json({
@@ -101,20 +106,52 @@ const adminaccountSchema = () => {
   // ============================================
   // BUSINESS GET ALL
   // ============================================
-  const GetAllBusiness = async (req, res) => {
-    try {
-      const bus = await Busniess.find();
+ const GetAllBusiness = async (req, res) => {
+  try {
+    // 1️⃣ Get all Business
+    const bus = await Busniess.find().lean();
 
-      res.status(200).json({
-        status: true,
-        data: bus
-      });
+    // 2️⃣ Extract all business ids
+    const businessIds = bus.map(b => b._id);
 
-    } catch (err) {
-      console.error("Something went wrong:", err);
-      res.status(500).json({ status: false, message: "Internal Server Error" });
-    }
-  };
+    // 3️⃣ Get sub-business count for each business
+    const subCounts = await SubBusniess.aggregate([
+      {
+        $match: {
+          Busniessid: { $in: businessIds }
+        }
+      },
+      {
+        $group: {
+          _id: "$Busniessid",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // 4️⃣ Merge subbusiness count into business response
+    const merged = bus.map(biz => {
+      const found = subCounts.find(sub => String(sub._id) === String(biz._id));
+
+      return {
+        ...biz,
+        totalSubBusiness: found ? found.count : 0
+      };
+    });
+
+    // 5️⃣ Return final formatted data
+    return res.status(200).json({
+      status: true,
+      count: merged.length,
+      data: merged
+    });
+
+  } catch (err) {
+    console.error("GetAllBusiness Error:", err);
+    res.status(500).json({ status: false, message: "Internal Server Error" });
+  }
+};
+
 
   // ============================================
   // BUSINESS GET BY ID
@@ -220,7 +257,7 @@ const adminaccountSchema = () => {
 // ============================================
 const SubBusinessCreate = async (req, res) => {
   try {
-    const { Name, Busniessid } = req.body;
+    const { Name, Busniessid,amount } = req.body;
 
     const exists = await SubBusniess.findOne({
       Name: { $regex: new RegExp("^" + Name.trim() + "$", "i") }
@@ -232,10 +269,13 @@ const SubBusinessCreate = async (req, res) => {
         message: "SubBusiness Name Already Exists"
       });
     }
+  const updatedText = moment().format("DD/MM/YYYY hh:mm A");
 
     const sub = await SubBusniess.create({
       Name: Name.trim(),
-      Busniessid
+      Busniessid:Busniessid,
+      amount: amount || 0,
+      updatedText: updatedText
     });
 
     res.status(200).json({
@@ -268,7 +308,37 @@ const GetAllSubBusiness = async (req, res) => {
     res.status(500).json({ status: false, message: "Internal Server Error" });
   }
 };
+const GetAllsubbusBusiness = async (req, res) => {
+  try {
+  console.log(req.params.id,"req.params.id")
 
+    // 🔐 validation
+    if (!req.params.id) {
+      return res.status(400).json({
+        status: false,
+        message: "Business ID (_id) is required"
+      });
+    }
+
+    // 📌 fetch data
+    const sub = await SubBusniess.find({ Busniessid: req.params.id })
+      .populate("Busniessid")
+      .lean();
+     console.log(sub,"sub")
+    return res.status(200).json({
+      status: true,
+      count: sub.length,
+      data: sub
+    });
+
+  } catch (err) {
+    console.error("GetAllSubBusiness Error =>", err);
+    return res.status(500).json({
+      status: false,
+      message: "Internal Server Error"
+    });
+  }
+};
 // ============================================
 // SUB BUSINESS GET BY ID
 // ============================================
@@ -521,7 +591,8 @@ const DeleteTransaction = async (req, res) => {
   GetAllTransaction,
   GetTransactionById,
   UpdateTransaction,
-  DeleteTransaction
+  DeleteTransaction,
+  GetAllsubbusBusiness
   };
 
 };

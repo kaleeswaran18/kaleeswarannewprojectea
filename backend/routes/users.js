@@ -31,6 +31,7 @@ router.delete("/delete/:id", adminaccountController.DeleteBusiness);
 
 router.post('/sub/create', adminaccountController.SubBusinessCreate)
 router.get('/sub/get', adminaccountController.GetAllSubBusiness)
+router.get('/subbus/get/:id', adminaccountController.GetAllsubbusBusiness)
 router.get('/sub/get/:id', adminaccountController.GetSubBusinessById)
 router.put('/sub/update/:id', adminaccountController.UpdateSubBusiness)
 router.delete('/sub/delete/:id', adminaccountController.DeleteSubBusiness)

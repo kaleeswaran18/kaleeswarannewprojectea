@@ -22,6 +22,8 @@ const Adminaccountmodel = mongoose.model("Admin", adminaccountmodel, "Admin")
 const createnewbusniessmodel = new mongoose.Schema({
     Name: { type: String },
     Books: { type: Number, default: null },
+    updatedText:{ type: String,default: 0},
+    amount: { type: Number}
 })
 const Busniess = mongoose.model("Busniess", createnewbusniessmodel, "Busniess")
 
@@ -29,7 +31,9 @@ const Busniess = mongoose.model("Busniess", createnewbusniessmodel, "Busniess")
 
 const createsubbusniessmodel = new mongoose.Schema({
     Name: { type: String },
-    Busniessid: { type: mongoose.Schema.Types.ObjectId, ref: "Busniess" }
+    Busniessid: { type: mongoose.Schema.Types.ObjectId, ref: "Busniess" },
+    updatedText:{ type: String,default: 0},
+    amount: { type: Number}
 })
 const SubBusniess = mongoose.model("SubBusniess", createsubbusniessmodel, "SubBusniess")
 
